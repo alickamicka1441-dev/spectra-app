@@ -3610,6 +3610,17 @@
     logEl.insertBefore(entry, logEl.firstChild);
   }
 
+  // Turns a real numeric reading into a word-bank index using a
+  // deterministic hash — the same signature always maps to the same
+  // word, instead of layering an unrelated dice roll on top of a
+  // genuine spike. This is closer to what apps like GhostTube actually
+  // claim: the word is "selected" by the specific reading, not rolled.
+  function signatureIndex(seed){
+    const x = Math.sin(seed) * 43758.5453123;
+    const frac = x - Math.floor(x);
+    return Math.floor(frac * RESPONSE_BANK.length);
+  }
+
   function checkSpike(level, source){
     const tr = trackers[source];
     const margin = source === 'field' ? fieldMargin() : audioMargin();
@@ -3622,7 +3633,11 @@
 
     if (isSpiking && tr.armed && (now - lastWordTime) > minGapMs()){
       tr.armed = false; // won't fire again until the reading settles back down
-      const word = RESPONSE_BANK[Math.floor(Math.random()*RESPONSE_BANK.length)];
+      // the seed is built from the actual measured signature: the precise
+      // level, how far it broke from baseline, and the exact millisecond
+      // it happened — a real fingerprint of this specific spike
+      const seed = level * 12.9898 + tr.baseline * 78.233 + (now % 1000) * 0.017;
+      const word = RESPONSE_BANK[signatureIndex(seed)];
       logWord(word, source);
       playCue(source);
       lastWordTime = now;
